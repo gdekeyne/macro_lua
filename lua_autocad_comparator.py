@@ -15,7 +15,10 @@ while True:
 
     # Trigger the comparison only if all the fields are filled
     if (event == "COMPARE") and all([values[key] for key in ['LUA', 'AUTOCAD', 'BOX', 'PATH', 'NAME']]):
-        output = os.path.join(values['PATH'], values['NAME'])
+        file_name = values['NAME']
+        if '.' not in file_name:
+            file_name += '.xlsx'
+        output = os.path.join(values['PATH'], file_name)
         try:
             macro = Macro(values['LUA'], values['AUTOCAD'], values['BOX'])
             macro.get_indexes()
