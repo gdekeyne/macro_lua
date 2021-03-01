@@ -18,15 +18,9 @@ https://www.python.org/downloads/
 ```
 Before following the installation, tick the box "add Python to path".
 
-In a windows prompt, go to the folder where you unzipped the archive and enter the following lines:
+In a windows prompt, go to the folder where you unzipped the archive and run the installation script:
 ```
-pip install -r requirements.txt
-pyinstaller --onefile --icon=static\YAd_icon.ico lua_autocad_comparator.py
-mv dist\* .
-rm *.spec
-rmdir dist
-rmdir __pycache__ /s
-rmdir build /s
+installation.cmd
 ```
 
 Then, simply run the application in a command prompt or by a double-click on the output-file.
