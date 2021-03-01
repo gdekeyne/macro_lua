@@ -1,12 +1,12 @@
-# LUA Autocad Comparator
+LUA AUTOCAD COMPARATOR
 
-### Created by Gautier Dekeyne from Extia
-#### Contact gdekeyne@extia.be
+Created by Gautier Dekeyne from Extia
+Contact: gdekeyne@extia.be
 
 A small graphical interface allowing the user to compare the output of an autocad Excel sheet
 with the LUA Excel sheet.
 
-### Installation:
+Installation:
 To install, download archive from:
 ```
 https://github.com/gdekeyne/macro_lua/archive/master.zip
