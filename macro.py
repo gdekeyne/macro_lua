@@ -1,24 +1,38 @@
-import sys
+
+import os
+
+import numpy as np
+import pandas as pd
+import PySimpleGUI as sg
 
 import openpyxl
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 
-import pandas as pd
-import numpy as np
-
 
 class Macro:
-    def __init__(self, lua, autocad):
+    def __init__(self, lua, autocad, box_name):
+        # INITIALIZING INPUT AND OUTPUT
+        # Reading the input files
         self.lua = pd.read_excel(lua, skiprows=1)
         self.autocad = pd.read_excel(autocad)
+        # Creating the result sheet
         self.results = openpyxl.load_workbook(autocad)
         self.sheet = self.results.worksheets[0]
+        # Arranging input data
         self.arrange_autocad()
         self.arrange_lua()
         self.n_col = len(self.autocad.columns)
+        # Sorting the columns in the result sheet
         self.arrange_sheet()
-        self.index_offset = 3   # Sheets starts counts at 1, 1st line ignored, 2nd line is column names
+
+        # MISCELLANEOUS
+        self.box_name = box_name.lower().replace(' ', '_')
+        if self.box_name not in self.lua.keys():
+            raise ValueError('{} not found in LUA box names'.format(self.box_name))
+
+        # Sheets starts counts at 1, 1st line ignored, 2nd line is column names
+        self.index_offset = 3
         self.green = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
         self.yellow = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
         self.red = PatternFill(start_color='FFFF0000', end_color='FFFF0000', fill_type='solid')
@@ -93,7 +107,7 @@ class Macro:
 
         # If there is a difference between the tables
         if str_compare == 'nan':
-            return 'unfilled', self.yellow
+            return reference, self.yellow
 
         return reference, self.red
 
@@ -119,7 +133,7 @@ class Macro:
             self.fill_cell('polarity', polarity, index, self.n_col + 4, row + 1, cross)
 
     def get_cross(self, index):
-        return self.lua['ix1-2'][index]
+        return self.lua[self.box_name][index]
 
     def adjust_columns(self):
         worksheet = self.results.active
@@ -134,15 +148,33 @@ class Macro:
             raise ValueError('Path to results file {} not found'.format(output_path))
 
 
-if __name__ == '__main__':
-    path_lua, path_autocad = sys.argv[1], sys.argv[2]
-    if len(sys.argv) > 3:
-        output = sys.argv[3]
-    else:
-        output = path_autocad
+sg.theme('DarkGrey9')
+lua_file = [sg.Text("LUA file\t\t"), sg.In(size=(25, 1), key="LUA"), sg.FileBrowse()]
+autocad_file = [sg.Text("Autocad file\t"), sg.In(size=(25, 1), key="AUTOCAD"), sg.FileBrowse()]
+box_name = [sg.Text("Box name\t"), sg.In(size=(25, 1), key="BOX", default_text='IX1-2')]
+output_path = [sg.Text("Output folder\t"), sg.In(size=(25, 1), key="PATH"), sg.FolderBrowse()]
+output_name = [sg.Text("Output file name\t"), sg.In(size=(25, 1), key="NAME")]
+ok_button = [sg.Button("Compare", enable_events=True, key="COMPARE")]
+input_list = [lua_file, autocad_file, box_name, output_path, output_name, ok_button]
 
-    macro = Macro(path_lua, path_autocad)
-    macro.get_indexes()
-    macro.compare()
-    macro.adjust_columns()
-    macro.save_result(output)
+layout = [[sg.Column(input_list)]]
+window = sg.Window("LUA autocad comparator", layout, icon='__file__.__path__/extialogo_YAd_icon.ico')
+
+while True:
+    event, values = window.read()
+    if (event == "Exit") or (event == sg.WIN_CLOSED):
+        break
+
+    if (event == "COMPARE") and all([values[key] for key in ['LUA', 'AUTOCAD', 'BOX', 'PATH', 'NAME']]):
+        output = os.path.join(values['PATH'], values['NAME'])
+        try:
+            macro = Macro(values['LUA'], values['AUTOCAD'], values['BOX'])
+            macro.get_indexes()
+            macro.compare()
+            macro.adjust_columns()
+            macro.save_result(output)
+            print('File successfully generated at: {}'.format(output))
+        except Exception as e:
+            print(e)
+
+window.close()
