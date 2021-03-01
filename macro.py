@@ -1,9 +1,10 @@
 
-import os
+"""
+The Macro comparing the LUA with the autocad file
+"""
 
 import numpy as np
 import pandas as pd
-import PySimpleGUI as sg
 
 import openpyxl
 from openpyxl.styles import PatternFill
@@ -65,6 +66,9 @@ class Macro:
                                  for io_name, io_type in zip(self.lua['i/o_name'], self.lua['i/o_type'])]
 
     def get_indexes(self):
+        """
+        Finds the list of the cells in the LUA matching each element of the autocad file
+        """
         for row, (eq_name, io_name, conf_id) in enumerate(zip(self.autocad['eq_name'],
                                                               self.autocad['i/o_name'],
                                                               self.autocad['standard_configuration_id'])):
@@ -95,6 +99,9 @@ class Macro:
         return np.where(self.lua['standard_configuration_id'] == conf_id)[0]
 
     def get_difference(self, reference_key, compare, index, cross=''):
+        """
+        Makes the comparison between a cell from the LUA with a cell from the autocad file
+        """
         str_compare = str(compare).replace('\P', '')
         # If there is no cross in the reference table
         if not isinstance(cross, str):
@@ -118,6 +125,9 @@ class Macro:
             list(self.sheet.columns)[column][row].fill = color
 
     def compare(self):
+        """
+        Compares two matching rows of the LUA and autocad file
+        """
         index_list = list(self.sheet.columns)[self.n_col]
         for row, (cell, dutch, french, signal, polarity) in \
             enumerate(zip(index_list[1:],
@@ -138,7 +148,7 @@ class Macro:
     def adjust_columns(self):
         worksheet = self.results.active
         for n, col in enumerate(worksheet.columns):
-            column = get_column_letter(col[0].column)  # Get the column name
+            column = get_column_letter(col[0].column)
             worksheet.column_dimensions[column].width = 25
 
     def save_result(self, output_path):
@@ -146,35 +156,3 @@ class Macro:
             self.results.save(output_path)
         except FileNotFoundError:
             raise ValueError('Path to results file {} not found'.format(output_path))
-
-
-sg.theme('DarkGrey9')
-lua_file = [sg.Text("LUA file\t\t"), sg.In(size=(25, 1), key="LUA"), sg.FileBrowse()]
-autocad_file = [sg.Text("Autocad file\t"), sg.In(size=(25, 1), key="AUTOCAD"), sg.FileBrowse()]
-box_name = [sg.Text("Box name\t"), sg.In(size=(25, 1), key="BOX", default_text='IX1-2')]
-output_path = [sg.Text("Output folder\t"), sg.In(size=(25, 1), key="PATH"), sg.FolderBrowse()]
-output_name = [sg.Text("Output file name\t"), sg.In(size=(25, 1), key="NAME")]
-ok_button = [sg.Button("Compare", enable_events=True, key="COMPARE")]
-input_list = [lua_file, autocad_file, box_name, output_path, output_name, ok_button]
-
-layout = [[sg.Column(input_list)]]
-window = sg.Window("LUA autocad comparator", layout, icon='__file__.__path__/extialogo_YAd_icon.ico')
-
-while True:
-    event, values = window.read()
-    if (event == "Exit") or (event == sg.WIN_CLOSED):
-        break
-
-    if (event == "COMPARE") and all([values[key] for key in ['LUA', 'AUTOCAD', 'BOX', 'PATH', 'NAME']]):
-        output = os.path.join(values['PATH'], values['NAME'])
-        try:
-            macro = Macro(values['LUA'], values['AUTOCAD'], values['BOX'])
-            macro.get_indexes()
-            macro.compare()
-            macro.adjust_columns()
-            macro.save_result(output)
-            print('File successfully generated at: {}'.format(output))
-        except Exception as e:
-            print(e)
-
-window.close()
