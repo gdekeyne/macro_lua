@@ -89,14 +89,15 @@ class Macro:
                 raise KeyError('Key {} not found in LUA reference'.format(key))
 
         # Reassembling the name from the type and version number
-        self.lua['full_name'] = [io_type[-1] + str(io_name)
-                                 # And only if the type is BO or BI
-                                 if (io_type == 'BO') or (io_type == 'BI') else np.nan
-                                 # If the name is a version number like 1.2 or 3.1
-                                 if str(io_name).replace('.', '').isdigit() else io_name
-                                 for io_name, io_type in zip(self.lua['i/o_name'], self.lua['i/o_type'])]
-
-
+        full_name_list = list()
+        for io_name, io_type in zip(self.lua['i/o_name'], self.lua['i/o_type']):
+            if (io_type == 'BO') or (io_type == 'BI'):
+                if str(io_name).replace('.', '').isdigit():
+                    full_name_list.append(io_type[-1] + str(io_name))
+                else:
+                    full_name_list.append(io_name)
+            else:
+                full_name_list.append(np.nan)
 
     def find_last_row(self):
         """
