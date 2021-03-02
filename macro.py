@@ -3,12 +3,16 @@
 The Macro comparing the LUA with the autocad file
 """
 
+from copy import copy
+
 import numpy as np
 import pandas as pd
 
 import openpyxl
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
+
+from pdb import set_trace as st
 
 
 class Macro:
@@ -24,6 +28,7 @@ class Macro:
         self.arrange_autocad()
         self.arrange_lua()
         self.n_col = len(self.autocad.columns)
+        self.last_row = self.find_last_row()
         # Sorting the columns in the result sheet
         self.arrange_sheet()
 
@@ -36,7 +41,8 @@ class Macro:
         self.index_offset = 3
         self.green = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
         self.yellow = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
-        self.red = PatternFill(start_color='FFFF0000', end_color='FFFF0000', fill_type='solid')
+        self.red = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
+        self.orange = PatternFill(start_color='FFA500', end_color='FFA500', fill_type='solid')
 
     def arrange_sheet(self):
         for i in range(6):
@@ -49,7 +55,18 @@ class Macro:
         # Hence the configuration is at the last column and needs to be moved back
         for cell_config, cell_last_column in zip(list(self.sheet.columns)[self.n_col-1], list(self.sheet.columns)[-1]):
             cell_config.value = cell_last_column.value
+            self.copy_style(cell_config, cell_last_column)
             cell_last_column.value = ''
+
+    @staticmethod
+    def copy_style(cell_config, cell_last_column):
+        if cell_last_column.has_style:
+            cell_config.font, cell_last_column.font = copy(cell_last_column.font), copy(cell_config.font)
+            cell_config.border, cell_last_column.border = copy(cell_last_column.border), copy(cell_config.border)
+            cell_config.fill, cell_last_column.fill = copy(cell_last_column.fill), copy(cell_config.fill)
+            cell_config.number_format, cell_last_column.number_format = copy(cell_last_column.number_format), copy(cell_config.number_format)
+            cell_config.protection, cell_last_column.protection = copy(cell_last_column.protection), copy(cell_config.protection)
+            cell_config.alignment, cell_last_column.alignment = copy(cell_last_column.alignment), copy(cell_config.alignment)
 
     def arrange_autocad(self):
         for key in self.autocad.columns:
@@ -65,6 +82,15 @@ class Macro:
         self.lua['full_name'] = [io_type[-1] + str(io_name) if str(io_name).replace('.', '').isdigit() else io_name
                                  for io_name, io_type in zip(self.lua['i/o_name'], self.lua['i/o_type'])]
 
+    def find_last_row(self):
+        last_row = 0
+        for row in self.autocad.iterrows():
+            if all([str(cell) == 'nan' for cell in row[1]]):
+                break
+            last_row = row[0]
+
+        return last_row
+
     def get_indexes(self):
         """
         Finds the list of the cells in the LUA matching each element of the autocad file
@@ -72,10 +98,12 @@ class Macro:
         for row, (eq_name, io_name, conf_id) in enumerate(zip(self.autocad['eq_name'],
                                                               self.autocad['i/o_name'],
                                                               self.autocad['standard_configuration_id'])):
+            if row > self.last_row:
+                break
+
             index_eq = self.get_index_eq(eq_name)
             index_io = self.get_index_io(io_name)
             index = np.intersect1d(index_io, index_eq)
-
             if conf_id is not None:
                 index_conf = self.get_index_conf(conf_id)
                 index = np.intersect1d(index, index_conf)
@@ -107,16 +135,21 @@ class Macro:
         if not isinstance(cross, str):
             return '', None
 
+        str_reference = str(self.lua[reference_key][index])
+
+        # If the LUA reference is empty
+        if str_reference == 'nan':
+            return 'Empty reference', self.orange
+
         # If the reference and the autocad output are identical
-        reference = str(self.lua[reference_key][index])
-        if reference == str_compare:
+        if str_reference == str_compare:
             return 'ok', self.green
 
         # If there is a difference between the tables
         if str_compare == 'nan':
-            return reference, self.yellow
+            return str_reference, self.yellow
 
-        return reference, self.red
+        return str_reference, self.red
 
     def fill_cell(self, reference_key, compare, index, column, row, cross=''):
         content, color = self.get_difference(reference_key, compare, index, cross)
@@ -135,6 +168,9 @@ class Macro:
                           self.autocad['i/o_descr_fr'],
                           self.autocad['i/o_conn_02_function'],
                           self.autocad['i/o_conn_01_function'])):
+            if row > self.last_row:
+                break
+
             index = int(cell.value) - self.index_offset
             cross = self.get_cross(index)
             self.fill_cell('infolist/princ.diagr._name_nl', dutch, index, self.n_col + 1, row + 1)
@@ -148,8 +184,14 @@ class Macro:
     def adjust_columns(self):
         worksheet = self.results.active
         for n, col in enumerate(worksheet.columns):
+            max_size = 0
+            for cell in col:
+                len_cell = len(str(cell.value))
+                if len_cell > max_size:
+                    max_size = len_cell
+
             column = get_column_letter(col[0].column)
-            worksheet.column_dimensions[column].width = 25
+            worksheet.column_dimensions[column].width = max_size + 5
 
     def save_result(self, output_path):
         try:
