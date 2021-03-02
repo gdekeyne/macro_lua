@@ -99,6 +99,8 @@ class Macro:
             else:
                 full_name_list.append(np.nan)
 
+        self.lua['full_name'] = full_name_list
+
     def find_last_row(self):
         """
         Finds the first row whose cells are all empty
