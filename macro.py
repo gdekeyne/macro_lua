@@ -12,14 +12,12 @@ import openpyxl
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 
-from pdb import set_trace as st
-
 
 class Macro:
     def __init__(self, lua, autocad, box_name):
         # INITIALIZING INPUT AND OUTPUT
         # Reading the input files
-        self.lua = pd.read_excel(lua, skiprows=1)
+        self.lua = pd.read_excel(lua, skiprows=1, sheet_name='IO')
         self.autocad = pd.read_excel(autocad)
         # Creating the result sheet
         self.results = openpyxl.load_workbook(autocad)
@@ -49,7 +47,11 @@ class Macro:
             self.sheet.insert_cols(self.n_col)
 
         for n, key in enumerate(['index', 'dutch', 'french', 'signal', 'polarity']):
-            list(self.sheet.columns)[n + self.n_col][0].value = key
+            try:
+                list(self.sheet.columns)[n + self.n_col][0].value = key
+            except IndexError:
+                raise IndexError('Index {} beyond length of autocad file which is {}'
+                                 .format(n + self.n_col, len(list(self.sheet.columns))))
 
         # Inserting columns at the end of the file inserts it at the second to last place
         # Hence the configuration is at the last column and needs to be moved back
@@ -72,17 +74,34 @@ class Macro:
         for key in self.autocad.columns:
             self.autocad.rename(columns={key: key.lower().replace(' ', '_')}, inplace=True)
 
-        if 'standard_configuration_id' not in self.autocad.columns:
-            self.autocad['standard_configuration_id'] = [None] * len(self.autocad)
+        for key in ['i/o_descr_nl', 'i/o_descr_fr', 'i/o_conn_02_function', 'i/o_conn_01_function',
+                    'eq_name', 'i/o_name', 'standard_configuration_id']:
+            if key not in self.autocad.columns:
+                raise KeyError('Key {} not found in autocad'.format(key))
 
     def arrange_lua(self):
         for key in self.lua.columns:
             self.lua.rename(columns={key: key.lower().replace(' ', '_')}, inplace=True)
 
-        self.lua['full_name'] = [io_type[-1] + str(io_name) if str(io_name).replace('.', '').isdigit() else io_name
+        for key in ['i/o_name', 'i/o_type', 'interface_device_name', 'standard_configuration_id',
+                    'infolist/princ.diagr._name_nl', 'infolist/princ.diagr._name_fr', 'signal_code', 'polarity']:
+            if key not in self.lua.columns:
+                raise KeyError('Key {} not found in LUA reference'.format(key))
+
+        # Reassembling the name from the type and version number
+        self.lua['full_name'] = [io_type[-1] + str(io_name)
+                                 # And only if the type is BO or BI
+                                 if (io_type == 'BO') or (io_type == 'BI') else np.nan
+                                 # If the name is a version number like 1.2 or 3.1
+                                 if str(io_name).replace('.', '').isdigit() else io_name
                                  for io_name, io_type in zip(self.lua['i/o_name'], self.lua['i/o_type'])]
 
+
+
     def find_last_row(self):
+        """
+        Finds the first row whose cells are all empty
+        """
         last_row = 0
         for row in self.autocad.iterrows():
             if all([str(cell) == 'nan' for cell in row[1]]):

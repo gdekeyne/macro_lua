@@ -12,7 +12,12 @@ box_name = [sg.Text("Box name\t"), sg.In(size=(25, 1), key="BOX", default_text='
 output_path = [sg.Text("Output folder\t"), sg.In(size=(25, 1), key="PATH"), sg.FolderBrowse()]
 output_name = [sg.Text("Output file name\t"), sg.In(size=(25, 1), key="NAME")]
 ok_button = [sg.Button("Compare", enable_events=True, key="COMPARE")]
-input_list = [lua_file, autocad_file, box_name, output_path, output_name, ok_button]
+line_split = sg.VSeperator()
+left_column = [lua_file, autocad_file, box_name, output_path, output_name, ok_button]
 
-layout = [[sg.Column(input_list)]]
+box_title = [sg.Text("Logs:")]
+log_box = [sg.Multiline(size=(35, 10), key="LOGBOX")]
+right_column = [box_title, log_box]
+
+layout = [[sg.Column(left_column), line_split, sg.Column(right_column)]]
 window = sg.Window("LUA autocad comparator", layout)
