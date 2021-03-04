@@ -231,7 +231,7 @@ class Macro:
                     max_size = len_cell
 
             column = get_column_letter(col[0].column)
-            worksheet.column_dimensions[column].width = max_size + 5
+            worksheet.column_dimensions[column].width = int(max_size*1.2) + 5
 
     def save_result(self, output_path):
         try:
