@@ -126,7 +126,6 @@ class Macro:
                                  .format(eq_name, io_name, conf_id))
         elif length > 1:
             if conf_id is None:
-                raise ValueError('NIEEE')
                 print('{} match found instead of 1 for EQ name {}, I/O name {}'.format(length, eq_name, io_name))
             else:
                 print('{} match found instead of 1 for EQ name {}, I/O name {} and configuration id {}'
