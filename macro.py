@@ -5,24 +5,22 @@ The Macro comparing the LUA with the autocad file
 
 from copy import copy
 
-import numpy as np
-import pandas as pd
+from numpy import nan, where, intersect1d
+from pandas import read_excel
 
-import openpyxl
+from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
-
-from pdb import set_trace as st
 
 
 class Macro:
     def __init__(self, lua, autocad, box_name):
         # INITIALIZING INPUT AND OUTPUT
         # Reading the input files
-        self.lua = pd.read_excel(lua, skiprows=1, sheet_name='IO')
-        self.autocad = pd.read_excel(autocad)
+        self.lua = read_excel(lua, skiprows=1, sheet_name='IO')
+        self.autocad = read_excel(autocad)
         # Creating the result sheet
-        self.results = openpyxl.load_workbook(autocad)
+        self.results = load_workbook(autocad)
         self.sheet = self.results.worksheets[0]
         # Arranging input data
         self.arrange_autocad()
@@ -102,7 +100,7 @@ class Macro:
                 else:
                     full_name_list.append(io_name)
             else:
-                full_name_list.append(np.nan)
+                full_name_list.append(nan)
 
         self.lua['full_name'] = full_name_list
 
@@ -144,23 +142,23 @@ class Macro:
 
             index_eq = self.get_index_eq(eq_name)
             index_io = self.get_index_io(io_name)
-            index = np.intersect1d(index_io, index_eq)
+            index = intersect1d(index_io, index_eq)
             if conf_id is not None:
                 index_conf = self.get_index_conf(conf_id)
-                index = np.intersect1d(index, index_conf)
+                index = intersect1d(index, index_conf)
 
             self.report_match(len(index), eq_name, io_name, conf_id)
             int_list = (index + self.index_offset).tolist()
             list(self.sheet.columns)[self.n_col][row + 1].value = ', '.join([str(i) for i in int_list])
 
     def get_index_eq(self, eq_name):
-        return np.where(self.lua['interface_device_name'] == eq_name)[0]
+        return where(self.lua['interface_device_name'] == eq_name)[0]
 
     def get_index_io(self, io_name):
-        return np.where(self.lua['full_name'] == io_name)[0]
+        return where(self.lua['full_name'] == io_name)[0]
 
     def get_index_conf(self, conf_id):
-        return np.where(self.lua['standard_configuration_id'] == conf_id)[0]
+        return where(self.lua['standard_configuration_id'] == conf_id)[0]
 
     def get_difference(self, reference_key, compare, index, cross=''):
         """
