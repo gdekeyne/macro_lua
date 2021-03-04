@@ -12,6 +12,8 @@ import openpyxl
 from openpyxl.styles import PatternFill
 from openpyxl.utils import get_column_letter
 
+from pdb import set_trace as st
+
 
 class Macro:
     def __init__(self, lua, autocad, box_name):
@@ -27,6 +29,7 @@ class Macro:
         self.arrange_lua()
         self.n_col = len(self.autocad.columns)
         self.last_row = self.find_last_row()
+        self.extra_rows = 6
         # Sorting the columns in the result sheet
         self.arrange_sheet()
 
@@ -37,13 +40,15 @@ class Macro:
 
         # Sheets starts counts at 1, 1st line ignored, 2nd line is column names
         self.index_offset = 3
+        self.duplicates = list()
         self.green = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
         self.yellow = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
         self.red = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
         self.orange = PatternFill(start_color='FFA500', end_color='FFA500', fill_type='solid')
+        self.brown = PatternFill(start_color='DEB887', end_color='DEB887', fill_type='solid')
 
     def arrange_sheet(self):
-        for i in range(6):
+        for i in range(self.extra_rows):
             self.sheet.insert_cols(self.n_col)
 
         for n, key in enumerate(['index', 'dutch', 'french', 'signal', 'polarity']):
@@ -113,6 +118,20 @@ class Macro:
 
         return last_row
 
+    def report_match(self, length, eq_name, io_name, conf_id=None):
+        if length == 0:
+            if conf_id is None:
+                raise ValueError('No match found for EQ name {}, I/O name {}'.format(eq_name, io_name))
+            else:
+                raise ValueError('No match found for EQ name {}, I/O name {} and configuration id {}'
+                                 .format(eq_name, io_name, conf_id))
+        elif length > 1:
+            if conf_id is None:
+                print('{} match found instead of 1 for EQ name {}, I/O name {}'.format(length, eq_name, io_name))
+            else:
+                print('{} match found instead of 1 for EQ name {}, I/O name {} and configuration id {}'
+                      .format(length, eq_name, io_name, conf_id))
+
     def get_indexes(self):
         """
         Finds the list of the cells in the LUA matching each element of the autocad file
@@ -129,15 +148,10 @@ class Macro:
             if conf_id is not None:
                 index_conf = self.get_index_conf(conf_id)
                 index = np.intersect1d(index, index_conf)
-                if len(index) != 1:
-                    raise ValueError('{} match found instead of 1 for EQ name {}, I/O name {} and configuration id {}'
-                                     .format(len(index), eq_name, io_name, conf_id))
 
-            if len(index) != 1:
-                raise ValueError('{} match found instead of 1 for EQ name {} and I/O name {}'
-                                 .format(len(index), eq_name, io_name))
-
-            list(self.sheet.columns)[self.n_col][row + 1].value = index[0] + self.index_offset
+            self.report_match(len(index), eq_name, io_name, conf_id)
+            int_list = (index + self.index_offset).tolist()
+            list(self.sheet.columns)[self.n_col][row + 1].value = ', '.join([str(i) for i in int_list])
 
     def get_index_eq(self, eq_name):
         return np.where(self.lua['interface_device_name'] == eq_name)[0]
@@ -190,8 +204,13 @@ class Macro:
                           self.autocad['i/o_descr_fr'],
                           self.autocad['i/o_conn_02_function'],
                           self.autocad['i/o_conn_01_function'])):
+
             if row > self.last_row:
                 break
+
+            if not cell.value.isdigit():
+                cell.fill = self.brown
+                continue
 
             index = int(cell.value) - self.index_offset
             cross = self.get_cross(index)
